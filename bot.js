@@ -79,7 +79,7 @@ bot.onText(/^\/set (.+)/, async (msg, match) => {
   bot.sendMessage(msg.chat.id, `✅ Data saved!\n${nim} - ${name}`);
 });
 
-// absensi command
+// absensi (attendance) command
 bot.onText(/^\/absensi (.+) (\d+)/, async (msg, match) => {
   if (msg.chat.type !== "group" && msg.chat.type !== "supergroup") return;
 
@@ -124,13 +124,13 @@ bot.onText(/^\/absensi (.+) (\d+)/, async (msg, match) => {
     },
   });
 
-  // Penutupan Absensi Otomatis
+  // automatically close attendance
   setTimeout(async () => {
     try {
-      // Hapus pesan absensi lama
+      // delete old attendancelist message
       await bot.deleteMessage(chatId, message.message_id);
 
-      // Ambil daftar peserta yang hadir
+      // get present list absence
       const presentList = await prisma.attendanceList.findMany({
         where: { attendanceId: attendance.id },
       });
@@ -144,7 +144,7 @@ bot.onText(/^\/absensi (.+) (\d+)/, async (msg, match) => {
         })
       );
 
-      // Kirim pesan baru dengan daftar peserta
+      // send new message with present list
       await bot.sendMessage(
         chatId,
         `🛑 Absensi untuk *${subject}* telah ditutup otomatis.\n\n📝 Daftar Hadir:\n${userData.join(
@@ -218,7 +218,6 @@ bot.on("callback_query", async (query) => {
       }
 
       await prisma.attendanceList.create({
-        //   await prisma.absensiPeserta.create({
         data: {
           attendanceId: attendance.id,
           telegramId,
@@ -253,10 +252,26 @@ bot.on("callback_query", async (query) => {
 
     case "tutup":
       try {
-        // Hapus pesan absensi lama
+        // check is user admin grup
+        const admins = await bot.getChatAdministrators(chatId);
+        const isAdmin = admins.some((admin) => admin.user.id === query.from.id);
+
+        if (!isAdmin) {
+          bot.answerCallbackQuery(query.id, {
+            text: "❌ Hanya admin grup yang dapat menutup absensi.",
+            show_alert: true,
+          });
+            logMessage(
+            "WARN",
+            `[${chatId}] ${query.from.username} attempted to close attendance without admin privileges.`
+            );
+          return;
+        }
+
+        // delete old attendancelist message
         await bot.deleteMessage(chatId, messageId);
 
-        // Ambil daftar peserta yang hadir
+        // get present list absence
         const presentList = await prisma.attendanceList.findMany({
           where: { attendanceId: attendance.id },
         });
@@ -270,7 +285,7 @@ bot.on("callback_query", async (query) => {
           })
         );
 
-        // Kirim pesan baru dengan daftar peserta
+        // send new message with present list
         await bot.sendMessage(
           chatId,
           `🛑 Absensi ${attendance.subject} telah ditutup oleh ${query.from.username}`,
@@ -315,7 +330,7 @@ bot.on("callback_query", async (query) => {
       return;
   }
 
-  // Update list peserta
+  // update present list
   const presentList = await prisma.attendanceList.findMany({
     where: { attendanceId: attendance.id },
   });
