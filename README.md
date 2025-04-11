@@ -33,7 +33,18 @@ The `tg-attendance-bot` is a Telegram bot built to streamline absence management
       DATABASE_URL="file:./dev.db"
       ```
 
-4. Start the bot:
+4. Set up Prisma:
+    - Initialize the Prisma database:
+      ```bash
+      npx prisma migrate dev --name init
+      ```
+      This will create the database schema based on the Prisma schema file (`prisma/schema.prisma`).
+    - If you need to inspect the database, you can use Prisma Studio:
+      ```bash
+      npx prisma studio
+      ```
+
+5. Start the bot:
     ```bash
     node bot.js
     ```
@@ -41,7 +52,7 @@ The `tg-attendance-bot` is a Telegram bot built to streamline absence management
 ## Usage
 
 - Send `/start` to the bot in Telegram to begin.
-- Send `/set <NIM Name>`  Set your NIM (Student ID) and Name.
+- Send `/set <NIM Name>` to set your NIM (Student ID) and Name.
 - Send `/absensi <Subject> <Duration (minutes)>` to start an attendance session.
 
 Enjoy using the bot! 😊
