@@ -113,7 +113,7 @@ bot.onText(/^\/absensi (.+) (\d+)/, async (msg, match) => {
     }
   );
 
-  await prisma.attendance.create({
+  const attendance = await prisma.attendance.create({
     data: {
       chatId,
       messageId: message.message_id.toString(),
@@ -124,22 +124,36 @@ bot.onText(/^\/absensi (.+) (\d+)/, async (msg, match) => {
     },
   });
 
+  // Penutupan Absensi Otomatis
   setTimeout(async () => {
     try {
-      await bot.editMessageReplyMarkup(
-        { inline_keyboard: [] },
-        {
-          chat_id: chatId,
-          message_id: message.message_id,
-        }
+      // Hapus pesan absensi lama
+      await bot.deleteMessage(chatId, message.message_id);
+
+      // Ambil daftar peserta yang hadir
+      const presentList = await prisma.attendanceList.findMany({
+        where: { attendanceId: attendance.id },
+      });
+
+      const userData = await Promise.all(
+        presentList.map(async (p, i) => {
+          const u = await prisma.user.findUnique({
+            where: { telegramId: p.telegramId },
+          });
+          return `${i + 1}. ${u ? `${u.nim} - ${u.name}` : p.telegramId}`;
+        })
+      );
+
+      // Kirim pesan baru dengan daftar peserta
+      await bot.sendMessage(
+        chatId,
+        `🛑 Absensi untuk *${subject}* telah ditutup otomatis.\n\n📝 Daftar Hadir:\n${userData.join(
+          "\n"
+        )}`,
+        { parse_mode: "Markdown" }
       );
 
       logMessage("INFO", `[${subject}] Attendance closed automatically.`);
-      await bot.sendMessage(
-        chatId,
-        `🛑 Absensi untuk *${subject}* ditutup otomatis.`,
-        { parse_mode: "Markdown" }
-      );
     } catch (err) {
       logMessage(
         "ERROR",
@@ -238,20 +252,61 @@ bot.on("callback_query", async (query) => {
       break;
 
     case "tutup":
-      await bot.editMessageReplyMarkup(
-        { inline_keyboard: [] },
-        { chat_id: chatId, message_id: messageId }
-      );
+      try {
+        // Hapus pesan absensi lama
+        await bot.deleteMessage(chatId, messageId);
 
-      logMessage(
-        "INFO",
-        `[${attendance.subject}] Attendance closed by ${query.from.username}.`
-      );
-      await bot.sendMessage(
-        chatId,
-        `🛑 Absensi ${attendance.subject} telah ditutup oleh ${query.from.username}.`
-      );
-      bot.answerCallbackQuery(query.id, { text: "🛑 Absensi ditutup." });
+        // Ambil daftar peserta yang hadir
+        const presentList = await prisma.attendanceList.findMany({
+          where: { attendanceId: attendance.id },
+        });
+
+        const userData = await Promise.all(
+          presentList.map(async (p, i) => {
+            const u = await prisma.user.findUnique({
+              where: { telegramId: p.telegramId },
+            });
+            return `${i + 1}. ${u ? `${u.nim} - ${u.name}` : p.telegramId}`;
+          })
+        );
+
+        // Kirim pesan baru dengan daftar peserta
+        await bot.sendMessage(
+          chatId,
+          `🛑 Absensi ${attendance.subject} telah ditutup oleh ${query.from.username}`,
+          { parse_mode: "Markdown" }
+        );
+        const currentTime = new Date().toLocaleString("id-ID", {
+          hour: "2-digit",
+          minute: "2-digit",
+          day: "numeric",
+          month: "long",
+          year: "numeric",
+        });
+
+        await bot.sendMessage(
+          chatId,
+          `📋 Mata Kuliah: ${attendance.subject}\n⏰ Ditutup: ${currentTime} \n\n📝 Daftar Hadir:\n${userData.join(
+            "\n"
+          )}`,
+          { parse_mode: "Markdown" }
+        );
+
+        logMessage(
+          "INFO",
+          `[${attendance.subject}] Attendance closed by ${query.from.username}.`
+        );
+        bot.answerCallbackQuery(query.id, { text: "🛑 Absensi ditutup." });
+      } catch (err) {
+        logMessage(
+          "ERROR",
+          `Failed to close attendance manually: ${err.message}`
+        );
+        bot.answerCallbackQuery(query.id, {
+          text: "❌ Gagal menutup absensi.",
+          show_alert: true,
+        });
+      }
       return;
 
     default:
