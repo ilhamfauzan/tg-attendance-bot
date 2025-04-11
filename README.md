@@ -51,6 +51,7 @@ The `tg-attendance-bot` is a Telegram bot built to streamline absence management
 
 ## Usage
 
+- Invite bot to the group.
 - Send `/start` to the bot in Telegram to begin.
 - Send `/set <NIM Name>` to set your NIM (Student ID) and Name.
 - Send `/absensi <Subject> <Duration (minutes)>` to start an attendance session.
