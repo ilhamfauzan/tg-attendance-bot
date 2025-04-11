@@ -1,0 +1,35 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  telegramId String @id
+  nim        String
+  name       String
+}
+
+model Attendance {
+  id            Int      @id @default(autoincrement())
+  initiatorId   String
+  subject        String
+  startTime     DateTime
+  endTime       DateTime
+  messageId     String
+  chatId        String
+
+  presentList   AttendanceList[]
+}
+
+model AttendanceList {
+  id            Int      @id @default(autoincrement())
+  attendanceId  Int
+  telegramId    String
+  time          DateTime
+
+  attendance Attendance @relation(fields: [attendanceId], references: [id])
+}
